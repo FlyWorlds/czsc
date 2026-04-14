@@ -152,7 +152,7 @@ graph TD
 - 你当前最常用的落地入口是：`examples/use_cta_research.py`。
 
 量化数据提供商：
-Tushare https://tushare.pro/document/2?doc_id=14
+Tushare [https://tushare.pro/document/2?doc_id=14] 需要设置token
 akShare
 - 聚宽
 - 东方财富
