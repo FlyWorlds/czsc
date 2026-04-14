@@ -1,0 +1,20 @@
+列名: ['symbol', 'dt', 'open', 'close', 'high', 'low', 'vol', 'amount']
+行数: 741579
+数据类型:
+symbol               str
+dt        datetime64[us]
+open             float64
+close            float64
+high             float64
+low              float64
+vol                int64
+amount             int64
+dtype: object
+
+前3行:
+      symbol                  dt  ...    vol   amount
+0  000039.SZ 2010-01-04 09:31:00  ...  97400  1287277
+1  000039.SZ 2010-01-04 09:32:00  ...  28300   372919
+2  000039.SZ 2010-01-04 09:33:00  ...  70100   922765
+
+[3 rows x 8 columns]
