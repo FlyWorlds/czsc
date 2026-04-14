@@ -150,3 +150,17 @@ graph TD
 - 代码组织比较清晰，核心价值在于：  
   `objects.py`（规则语义）+ `traders/base.py`（执行引擎）+ `signals/*`（可扩展信号库）+ `sensors/cta.py`（研究编排）。
 - 你当前最常用的落地入口是：`examples/use_cta_research.py`。
+
+量化数据提供商：
+Tushare https://tushare.pro/document/2?doc_id=14
+akShare
+- 聚宽
+- 东方财富
+- 新浪财经
+- 腾讯财经
+- 网易财经
+- 搜狐财经
+- 凤凰财经
+- 和讯财经
+- 同花顺
+
