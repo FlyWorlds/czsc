@@ -4,6 +4,16 @@ author: zengbin93
 email: zeng_bin8888@163.com
 create_dt: 2022/12/31 16:03
 describe: QMT 量化交易平台接口
+
+模块说明（QMT 连接器）：
+1) 行情适配：从 xtdata 拉取行情，并转换为 CZSC 标准 RawBar；
+2) 交易封装：统一下单、撤单、查持仓、查成交等接口；
+3) 回调通知：处理委托/成交/资产变化，并支持 IM 推送；
+4) 管理器示例：QmtTradeManager 提供可运行的实盘管理样例。
+
+注意：
+- 本文件偏“连接器 + 示例管理器”，可直接复用，也可按自身策略改造；
+- 实盘前建议重点审阅开平仓条件、风控阈值与下单参数。
 """
 import os
 import time
@@ -51,7 +61,7 @@ def format_stock_kline(kline: pd.DataFrame, freq: Freq) -> List[RawBar]:
     records = kline.to_dict('records')
 
     for i, record in enumerate(records):
-        # 将每一根K线转换成 RawBar 对象
+        # 将 QMT 行情行记录转换为 CZSC 统一 RawBar
         bar = RawBar(symbol=record['symbol'], dt=pd.to_datetime(record[dt_key]), id=i, freq=freq,
                      open=record['open'], close=record['close'], high=record['high'], low=record['low'],
                      vol=record['volume'] * 100 if record['volume'] else 0,  # 成交量，单位：股
@@ -91,6 +101,7 @@ def get_kline(symbol, period, start_time, end_time, count=-1, dividend_type='fro
     else:
         end_time = pd.to_datetime(end_time).strftime('%Y%m%d%H%M%S')
 
+    # 默认先触发本地历史数据下载，确保 get_market_data 可读到完整区间
     if kwargs.get("download_hist", True):
         xtdata.download_history_data(symbol, period=period, start_time=start_time, end_time=end_time)
 
@@ -105,6 +116,7 @@ def get_kline(symbol, period, start_time, end_time, count=-1, dividend_type='fro
     df['symbol'] = symbol
     df = df.dropna()
 
+    # 兼容两种返回：DataFrame 或 RawBar 列表
     if kwargs.get("df", True):
         return df
     else:
@@ -131,6 +143,7 @@ def get_raw_bars(symbol, freq, sdt, edt, fq='前复权', **kwargs) -> List[RawBa
     else:
         period = '1d'
 
+    # 将中文复权参数映射到 QMT dividend_type
     if fq == '前复权':
         dividend_type = 'front_ratio'
     elif fq == '后复权':
@@ -146,6 +159,7 @@ def get_raw_bars(symbol, freq, sdt, edt, fq='前复权', **kwargs) -> List[RawBa
 
     kline['dt'] = pd.to_datetime(kline['time'])
     kline['vol'] = kline['volume']
+    # 统一经 resample 后返回目标周期 RawBar
     bars = resample_bars(kline, freq, raw_bars=True)
     return bars
 
@@ -204,7 +218,7 @@ class TraderCallback(XtQuantTraderCallback):
             self.im = None
             self.members = None
 
-        # 推送模式：detail-详细模式，summary-汇总模式
+        # 推送模式：detail-逐笔推送；summary-仅汇总
         self.feishu_push_mode = kwargs.get('feishu_push_mode', 'detail')
 
         file_log = kwargs.get('file_log', None)
@@ -437,7 +451,7 @@ def is_allow_open(xtt: XtQuantTrader, acc: StockAccount, symbol, price, **kwargs
     :param price: 股票现价
     :return: True 允许开仓，False 不允许开仓
     """
-    symbol_max_pos = kwargs.get('max_pos', 0)  # 最大持仓数量
+    symbol_max_pos = kwargs.get('max_pos', 0)  # 最大持仓参数（<=0 视为禁开仓）
 
     # 如果 symbol_max_pos 为 0，不允许开仓
     if symbol_max_pos <= 0:
@@ -456,7 +470,7 @@ def is_allow_open(xtt: XtQuantTrader, acc: StockAccount, symbol, price, **kwargs
     if query_stock_positions(xtt, acc).get(symbol, None):
         return False
 
-    # 如果资金不足，不允许开仓
+    # 资金门槛：至少能买入 100 股 + 预留缓冲
     assets = xtt.query_stock_asset(acc)
     if assets.cash < price * 120:
         logger.warning(f"资金不足，无法开仓，symbol={symbol}")
@@ -480,7 +494,7 @@ def is_allow_exit(xtt: XtQuantTrader, acc: StockAccount, symbol, **kwargs):
     if not pos or pos.can_use_volume <= 0:
         return False
 
-    # 未成交的平仓委托单 存在，不允许继续平仓
+    # 避免重复提交平仓单
     if is_order_exist(xtt, acc, symbol, order_type=24):
         logger.warning(f"存在未成交的平仓委托单，symbol={symbol}")
         return False
@@ -519,7 +533,8 @@ def send_stock_order(xtt: XtQuantTrader, acc: StockAccount, **kwargs):
         xtt.start()
         xtt.connect()
 
-    order_volume = max(order_volume // 100 * 100, 0)        # 股票市场只允许做多 100 的整数倍
+    # A 股下单手数约束：按 100 股取整
+    order_volume = max(order_volume // 100 * 100, 0)
     assert xtt.connected, "交易服务器连接断开"
     _id = xtt.order_stock(acc, stock_code, order_type, int(order_volume), price_type, price, strategy_name, order_remark)
     return _id
@@ -572,7 +587,7 @@ def order_stock_target(xtt: XtQuantTrader, acc: StockAccount, symbol, target, **
 
 
 class QmtTradeManager:
-    """QMT交易管理器（这是一个案例性质的存在，真正实盘的时候请参考这个，根据自己的逻辑重新实现）
+    """QMT交易管理器（案例实现，建议按真实交易需求二次开发）
 
     功能特性：
 
@@ -808,7 +823,10 @@ class QmtTradeManager:
         return _id
 
     def update_traders(self):
-        """更新交易策略"""
+        """更新交易策略。
+
+        核心流程：拉取增量K线 -> 更新 trader 状态 -> 根据信号执行调仓。
+        """
         holds = self.query_stock_positions()
         kline_sdt = datetime.now() - timedelta(days=self.delta_days)
 

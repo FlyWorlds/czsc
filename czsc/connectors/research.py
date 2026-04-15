@@ -6,13 +6,22 @@ create_dt: 2023/3/5 20:45
 describe: CZSC投研数据共享接口
 
 投研数据共享说明（含下载地址）：https://s0cqcxuy3p.feishu.cn/wiki/wikcnzuPawXtBB7Cj7mqlYZxpDh
+
+模块说明：
+1) 提供本地投研共享数据的读取入口；
+2) 支持按分组列出可用标的；
+3) 将 parquet 行情重采样为 CZSC 标准 RawBar。
+
+注意：
+- 本模块依赖本地数据目录，需先配置环境变量 `czsc_research_cache`；
+- 读取的是本地共享数据，不会联网请求第三方接口。
 """
 import os
 import czsc
 import glob
 import pandas as pd
 
-# 投研共享数据的本地缓存路径，需要根据实际情况修改
+# 投研共享数据本地缓存路径：优先读取环境变量，未配置时使用默认路径
 cache_path = os.environ.get('czsc_research_cache', r"D:\quantitative\CZSC投研数据")
 if not os.path.exists(cache_path):
     raise ValueError(f"请设置环境变量 czsc_research_cache 为投研共享数据的本地缓存路径，当前路径不存在：{cache_path}。\n\n"
@@ -26,6 +35,7 @@ def get_symbols(name, **kwargs):
     :param kwargs:
     :return:
     """
+    # ALL：扫描所有分组目录；否则仅扫描指定分组目录
     if name.upper() == 'ALL':
         files = glob.glob(os.path.join(cache_path, "*", "*.parquet"))
     else:
@@ -45,14 +55,17 @@ def get_raw_bars(symbol, freq, sdt, edt, fq='前复权', **kwargs):
     :param kwargs:
     :return:
     """
+    # 兼容统一连接器签名；本地共享数据默认已做处理，此处不再二次复权
     kwargs['fq'] = fq
     file = glob.glob(os.path.join(cache_path, "*", f"{symbol}.parquet"))[0]
     freq = czsc.Freq(freq)
     kline = pd.read_parquet(file)
     if 'dt' not in kline.columns:
+        # 兼容历史字段命名：datetime -> dt
         kline['dt'] = pd.to_datetime(kline['datetime'])
     kline = kline[(kline['dt'] >= pd.to_datetime(sdt)) & (kline['dt'] <= pd.to_datetime(edt))]
     if kline.empty:
         return []
+    # 源数据按 1 分钟基准重采样到目标周期
     _bars = czsc.resample_bars(kline, freq, raw_bars=True, base_freq='1分钟')
     return _bars

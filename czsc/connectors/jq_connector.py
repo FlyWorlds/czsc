@@ -1,4 +1,15 @@
 # coding: utf-8
+"""聚宽（JoinQuant）HTTP 接口连接器。
+
+本模块用于把聚宽数据接口封装为 CZSC 可直接消费的数据函数，核心职责：
+1) 管理本地凭证（jq.token）并换取临时 token；
+2) 请求聚宽 HTTP API（行情、基础信息、财务等）；
+3) 将返回结果标准化为 CZSC 的 RawBar 等结构。
+
+注意：
+- 该文件主要提供函数，不是命令行脚本；直接执行通常不会有输出。
+- 推荐通过 import 调用，或在其他策略/回测流程中间接使用。
+"""
 import os
 import pickle
 import json
@@ -38,6 +49,7 @@ def set_token(jq_mob, jq_pwd):
         Password为聚宽官网登录密码，新申请用户默认为手机号后6位
     :return: None
     """
+    # 仅在本机保存账号信息，供 get_token 请求临时 token 使用
     with open(file_token, 'wb') as f:
         pickle.dump([jq_mob, jq_pwd], f)
 
@@ -50,6 +62,7 @@ def get_token():
     with open(file_token, 'rb') as f:
         jq_mob, jq_pwd = pickle.load(f)
 
+    # 每次通过手机号+密码向聚宽申请当次可用 token
     body = {
         "method": "get_current_token",
         "mob": jq_mob,  # mob是申请JQData时所填写的手机号
@@ -270,12 +283,14 @@ def get_kline(symbol: str, end_date: [datetime, str], freq: str,
     else:
         raise ValueError("start_date 和 count 不能同时为空")
 
+    # 复权逻辑：通过 fq_ref_date 指定复权参考日
     if fq:
         data.update({"fq_ref_date": end_date.strftime("%Y-%m-%d")})
 
     r = requests.post(url, data=json.dumps(data))
     rows = [x.split(",") for x in r.text.strip().split('\n')][1:]
 
+    # 将接口返回行数据映射为 CZSC 统一的 RawBar 结构
     bars = []
     i = -1
     for row in rows:
@@ -363,7 +378,11 @@ def get_init_bg(symbol: str,
                 freqs: List[str],
                 max_count=1000,
                 fq=True):
-    """获取 symbol 的初始化 bar generator"""
+    """获取 symbol 的初始化 bar generator。
+
+    典型用途：在策略启动时，先批量加载多周期历史数据初始化 BG，
+    再用最近增量数据进行 update。
+    """
     if isinstance(end_dt, str):
         end_dt = pd.to_datetime(end_dt, utc=False)
 
@@ -548,6 +567,7 @@ def get_raw_bars(symbol, freq, sdt, edt, fq='前复权', **kwargs):
     :param kwargs:
     :return:
     """
+    # 统一成连接器内部布尔值复权参数，保持与外部中文枚举兼容
     kwargs['fq'] = fq
     freq = str(freq)
     fq = True if fq == "前复权" else False
