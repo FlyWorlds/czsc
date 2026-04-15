@@ -7,13 +7,15 @@ describe: 期货CTA投研
 """
 import os
 import sys
+from pathlib import Path
 sys.path.insert(0, '.')
 sys.path.insert(0, '..')
-os.environ['base_path'] = r"D:\CTA研究"                 # 回测结果保存路径
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+os.environ['base_path'] = str(WORKSPACE_ROOT / "CTA投研")   # 回测结果保存路径
 # os.environ['czsc_min_bi_len'] = '7'                   # 最小笔长度，内部无包含关系K线数量
 # os.environ['czsc_bi_change_th'] = '-1'                # 笔划分时，是否用涨跌幅优化笔划分
 os.environ['signals_module_name'] = 'czsc.signals'      # 信号函数所在模块
-os.environ['czsc_research_cache'] = r"D:\CZSC投研数据"   # 本地数据缓存目录
+os.environ.setdefault('czsc_research_cache', str(WORKSPACE_ROOT / "CZSC投研数据"))
 import czsc
 import json
 import glob
@@ -21,7 +23,6 @@ import hashlib
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from pathlib import Path
 from loguru import logger
 from typing import List
 from stqdm import stqdm as tqdm
@@ -257,7 +258,7 @@ def main():
 
     backtest_all(strategies, results_path)
 
-    file_traders = glob.glob(fr"{results_path}\*.trader")
+    file_traders = glob.glob(str(results_path / "*.trader"))
     if not file_traders:
         st.warning("当前回测参数下，没有任何标的回测结果；请调整回测参数后重试")
         st.stop()

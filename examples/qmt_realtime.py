@@ -5,8 +5,17 @@ email: zeng_bin8888@163.com
 create_dt: 2023/3/5 10:08
 describe: QMT实时交易
 """
+import os
+from pathlib import Path
+
 from czsc.connectors import qmt_connector as qmc
 from czsc.strategies import CzscStrategyExample2
+
+
+QMT_ROOT = os.environ.get("QMT_ROOT")
+assert QMT_ROOT, "请先设置环境变量 QMT_ROOT 为 mini QMT 的 userdata_mini 目录"
+QMT_ROOT = Path(QMT_ROOT).expanduser()
+QMT_CACHE = QMT_ROOT / "czsc_stocks_beta_cache"
 
 
 def get_index_members(index_code='000852.SH', trade_date='20230131'):
@@ -20,9 +29,9 @@ def get_index_members(index_code='000852.SH', trade_date='20230131'):
 
 gjm = {
         # trader 缓存目录
-        'cache_path': "D:\\国金QMT交易端模拟\\userdata_mini\\czsc_stocks_beta_cache",
+        'cache_path': str(QMT_CACHE),
         # mini qmt 目录
-        'mini_qmt_dir': "D:\\国金QMT交易端模拟\\userdata_mini",
+        'mini_qmt_dir': str(QMT_ROOT),
         # 账户id
         'account_id': '55002763',
         # 设定实盘交易的股票池
@@ -42,13 +51,12 @@ gjm = {
             'feishu_app_id': 'cli_a307*****9500e',
             'feishu_app_secret': 'jVoMf688Gbw2******hoVbZ7fiTkTkgg',
             'feishu_members': ['ou_****0'],
-            'log_file': 'D:\\国金QMT交易端模拟\\userdata_mini\\czsc_stocks_beta_cache\\czsc_stocks_beta.log',
+            'log_file': str(QMT_CACHE / 'czsc_stocks_beta.log'),
         },
 }
 
 if __name__ == '__main__':
     manager = qmc.QmtTradeManager(**gjm)
     manager.run()
-
 
 

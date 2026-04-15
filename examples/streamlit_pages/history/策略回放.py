@@ -6,8 +6,10 @@ create_dt: 2023/5/11 20:49
 describe: CZSC策略回放
 """
 import os
+from pathlib import Path
 os.environ['czsc_max_bi_num'] = '20'
-os.environ['czsc_research_cache'] = r"D:\CZSC投研数据"
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+os.environ.setdefault('czsc_research_cache', str(WORKSPACE_ROOT / "CZSC投研数据"))
 os.environ['signals_module_name'] = 'czsc.signals'
 import inspect
 import streamlit as st

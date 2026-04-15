@@ -1,6 +1,7 @@
 import os
 import tushare as ts
 import pandas as pd
+from pathlib import Path
 
 # ===== Tushare Token 配置 =====
 # 首次使用需设置，之后会保存在本地，无需重复设置：
@@ -15,8 +16,9 @@ START_DATE = "20190101"
 END_DATE   = "20260413"
 
 # 保存目录
-save_dir = r"D:\quantitative\CZSC投研数据\自定义"
-os.makedirs(save_dir, exist_ok=True)
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+save_dir = WORKSPACE_ROOT / "CZSC投研数据" / "自定义"
+save_dir.mkdir(exist_ok=True, parents=True)
 
 # 列名映射：Tushare → 中文
 COL_MAP = {
@@ -64,7 +66,7 @@ def main():
         try:
             print(f"{symbol} [Tushare] 获取中...")
             df = fetch_daily(pro, symbol)
-            save_path = os.path.join(save_dir, f"{symbol}_daily.csv")
+            save_path = save_dir / f"{symbol}_daily.csv"
             df.to_csv(save_path, index=False, encoding="utf-8-sig")
             print(f"{symbol} 保存成功，共 {len(df)} 条 -> {save_path}")
         except Exception as e:

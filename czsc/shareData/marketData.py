@@ -1,6 +1,7 @@
 import os
 import akshare as ak
 import pandas as pd
+from pathlib import Path
 
 os.environ.pop("HTTP_PROXY", None)
 os.environ.pop("HTTPS_PROXY", None)
@@ -14,11 +15,12 @@ JQ_USER = "13018096678"
 JQ_PASS = "Qweqwe123."
 # =============================================
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 symbols   = ["000001", "000063", "002594"]
-save_dir  = r"D:\quantitative\CZSC投研数据\自定义"
+save_dir  = WORKSPACE_ROOT / "CZSC投研数据" / "自定义"
 START_DATE = "20240101"
 END_DATE   = "20260413"
-os.makedirs(save_dir, exist_ok=True)
+save_dir.mkdir(exist_ok=True, parents=True)
 
 
 # ===================================================================
@@ -177,8 +179,7 @@ if __name__ == "__main__":
         df = download(symbol)
         if df is not None:
             # 文件名与中证500成分股目录保持一致：{ts_code}.parquet
-            path = os.path.join(save_dir, f"{ts_code}.parquet")
+            path = save_dir / f"{ts_code}.parquet"
             df.to_parquet(path, index=False)
             print(f"  -> 保存: {path}")
             print(f"     共 {len(df)} 条，时间范围: {df['dt'].min()} ~ {df['dt'].max()}\n")
-

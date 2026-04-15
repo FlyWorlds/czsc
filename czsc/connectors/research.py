@@ -21,11 +21,40 @@ import czsc
 import glob
 import pandas as pd
 
-# 投研共享数据本地缓存路径：优先读取环境变量，未配置时使用默认路径
-cache_path = os.environ.get('czsc_research_cache', r"D:\quantitative\CZSC投研数据")
-if not os.path.exists(cache_path):
-    raise ValueError(f"请设置环境变量 czsc_research_cache 为投研共享数据的本地缓存路径，当前路径不存在：{cache_path}。\n\n"
-                     f"投研数据共享说明（含下载地址）：https://s0cqcxuy3p.feishu.cn/wiki/wikcnzuPawXtBB7Cj7mqlYZxpDh")
+
+def _resolve_cache_path():
+    """解析投研共享数据目录，兼容不同系统上的常见路径布局。"""
+    env_path = os.environ.get("czsc_research_cache")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    workspace_root = os.path.dirname(project_root)
+    candidates = [
+        env_path,
+        r"D:\quantitative\CZSC投研数据",
+        os.path.join(project_root, "CZSC投研数据"),
+        os.path.join(workspace_root, "CZSC投研数据"),
+        os.path.join(os.path.expanduser("~"), "Documents", "Quantitative", "CZSC投研数据"),
+    ]
+    checked = []
+    for path in candidates:
+        if not path:
+            continue
+        normalized = os.path.abspath(os.path.expanduser(path))
+        if normalized not in checked:
+            checked.append(normalized)
+        if os.path.exists(normalized):
+            if env_path and normalized != env_path:
+                os.environ["czsc_research_cache"] = normalized
+            return normalized
+
+    raise ValueError(
+        "请设置环境变量 czsc_research_cache 为投研共享数据的本地缓存路径。\n"
+        f"当前检查过的路径都不存在：{checked}\n\n"
+        "投研数据共享说明（含下载地址）："
+        "https://s0cqcxuy3p.feishu.cn/wiki/wikcnzuPawXtBB7Cj7mqlYZxpDh"
+    )
+
+
+cache_path = _resolve_cache_path()
 
 
 def get_symbols(name, **kwargs):

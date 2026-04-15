@@ -22,6 +22,9 @@ from multiprocessing import cpu_count
 from czsc.connectors.research import get_symbols, get_raw_bars
 from czsc import CzscStrategyBase, Position
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault('czsc_research_cache', str(WORKSPACE_ROOT / "CZSC投研数据"))
+
 
 class JsonStreamStrategy(CzscStrategyBase):
     """读取 streamlit 传入的 json 策略，进行回测"""
@@ -67,7 +70,7 @@ future_plates = {
     "农副": ['DLjd9001', 'DLlh9001', 'ZZAP9001', 'ZZPK9001'],
 }
 
-page_params = {"data_path": Path(r"D:\czsc_bi_datas\期货CTA投研")}
+page_params = {"data_path": WORKSPACE_ROOT / "CTA投研" / "期货CTA投研"}
 page_params['data_path'].mkdir(exist_ok=True, parents=True)
 
 
@@ -207,15 +210,15 @@ if files and sdt and max_workers:
         st.caption("信号函数配置：")
         st.json(tactic.signals_config)
 
-    if not os.path.exists(results_path):
-        os.makedirs(results_path, exist_ok=True)
+    if not results_path.exists():
+        results_path.mkdir(exist_ok=True, parents=True)
         params = {"sdt": str(sdt), "edt": str(edt), "symbols": symbols}
-        czsc.save_json(params, os.path.join(results_path, "params.json"))
+        czsc.save_json(params, str(results_path / "params.json"))
 
         cta = czsc.CTAResearch(
             JsonStreamStrategy,
             get_raw_bars,
-            results_path=results_path,
+            results_path=str(results_path),
             json_strategies=strategies,
             signals_module_name='czsc.signals',
         )
@@ -224,7 +227,7 @@ if files and sdt and max_workers:
 
     tabs = st.tabs(["所有品种", "行业板块"])
     with tabs[0]:
-        file_traders = glob.glob(fr"{results_path}\backtest_*\traders\*.trader")
+        file_traders = glob.glob(str(results_path / "backtest_*" / "traders" / "*.trader"))
         all_pos_names = [x.name for x in czsc.dill_load(file_traders[0]).positions]
         pos_name = st.selectbox("选择持仓", all_pos_names, index=0, key="pos_name")
         show_traders(file_traders, pos_name, fee=fee)
@@ -234,7 +237,7 @@ if files and sdt and max_workers:
         plate = col1.selectbox("选择板块", list(future_plates.keys()), index=0, key="plate")
         symbols = future_plates[plate]  # type: ignore
         st.caption(f"板块包含品种：{symbols}")
-        file_traders = glob.glob(fr"{results_path}\backtest_*\traders\*.trader")
+        file_traders = glob.glob(str(results_path / "backtest_*" / "traders" / "*.trader"))
         file_traders = [x for x in file_traders if os.path.basename(x).split(".")[0] in symbols]
         all_pos_names = [x.name for x in czsc.dill_load(file_traders[0]).positions]
         pos_name = col2.selectbox("选择持仓", all_pos_names, index=0, key="plate_pos_name")

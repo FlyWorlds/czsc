@@ -250,19 +250,32 @@ class WeightBacktest:
 
 def test_ensemble():
     """从单个 trader 中获取持仓权重，然后回测"""
-    trader = czsc.dill_load(r"D:\czsc_bi_datas\期货CTA投研\2019-01-01_2022-01-01_BE44E170\backtest_E497C9B5\traders\DLi9001.trader")
+    from pathlib import Path
+
+    workspace_root = Path(__file__).resolve().parents[3]
+    trader = czsc.dill_load(
+        workspace_root
+        / "CTA投研"
+        / "期货CTA投研"
+        / "2019-01-01_2022-01-01_BE44E170"
+        / "backtest_E497C9B5"
+        / "traders"
+        / "DLi9001.trader"
+    )
 
     def __ensemble_method(x):
         return (x['5分钟MACD多头T0'] + x['5分钟SMA#40多头T0']) / 2
     # dfw = get_ensemble_weight(trader, method='mean')
     dfw = get_ensemble_weight(trader, method=__ensemble_method)
-    wb = WeightBacktest(dfw, digits=1, fee_rate=0.0002, res_path=r"C:\Users\zengb\Desktop\weight_example_vote")
+    wb = WeightBacktest(dfw, digits=1, fee_rate=0.0002, res_path=workspace_root / "CTA投研" / "weight_example_vote")
     wb.backtest()
 
 
 def test_ensemble_weight():
     """从持仓权重样例数据中回测"""
-    dfw = pd.read_feather(r"C:\Users\zengb\Desktop\weight_example.feather")
-    wb = WeightBacktest(dfw, digits=1, fee_rate=0.0002, res_path=r"C:\Users\zengb\Desktop\weight_example")
-    res = wb.backtest()
+    from pathlib import Path
 
+    workspace_root = Path(__file__).resolve().parents[3]
+    dfw = pd.read_feather(workspace_root / "CTA投研" / "weight_example.feather")
+    wb = WeightBacktest(dfw, digits=1, fee_rate=0.0002, res_path=workspace_root / "CTA投研" / "weight_example")
+    res = wb.backtest()

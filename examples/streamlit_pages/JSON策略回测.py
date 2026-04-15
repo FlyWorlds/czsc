@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import czsc
 import json
 import glob
@@ -12,6 +13,10 @@ from czsc.utils.stats import net_value_stats
 from datetime import timedelta
 from multiprocessing import cpu_count
 from czsc.connectors.research import get_symbols, get_raw_bars
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+CTA_ROOT = WORKSPACE_ROOT / "CTA投研"
+os.environ.setdefault('czsc_research_cache', str(WORKSPACE_ROOT / "CZSC投研数据"))
 
 st.set_page_config(layout="wide", page_title="CZSC策略回测", page_icon="🧊")
 
@@ -55,17 +60,17 @@ if files and start_date and max_workers:
 
     # 生成临时回测结果路径
     hash_code = hashlib.sha256(f"{str(strategies)}_{str(symbols)}".encode('utf-8')).hexdigest()[:8].upper()
-    results_path = rf"D:\CTA投研\{symbol_gruop}_{start_date}_{end_date}_{hash_code}"
+    results_path = CTA_ROOT / f"{symbol_gruop}_{start_date}_{end_date}_{hash_code}"
 
-    if not os.path.exists(results_path):
-        os.makedirs(results_path, exist_ok=True)
-        os.makedirs(os.path.join(results_path, "upload_positions"), exist_ok=True)
+    if not results_path.exists():
+        results_path.mkdir(exist_ok=True, parents=True)
+        (results_path / "upload_positions").mkdir(exist_ok=True, parents=True)
 
         files_position = []
         for key, value in strategies.items():
-            file_pos = os.path.join(results_path, "upload_positions", key)
-            files_position.append(file_pos)
-            czsc.save_json(value, file_pos)
+            file_pos = results_path / "upload_positions" / key
+            files_position.append(str(file_pos))
+            czsc.save_json(value, str(file_pos))
 
         params = {
             "start_date": str(start_date),
@@ -73,10 +78,10 @@ if files and start_date and max_workers:
             "symbol_group": symbol_gruop,
             "symbols": symbols,
         }
-        czsc.save_json(params, os.path.join(results_path, "params.json"))
+        czsc.save_json(params, str(results_path / "params.json"))
 
         # 回测
-        cta = czsc.CTAResearch(czsc.CzscJsonStrategy, get_raw_bars, results_path=results_path, 
+        cta = czsc.CTAResearch(czsc.CzscJsonStrategy, get_raw_bars, results_path=str(results_path),
                             files_position=files_position,
                             signals_module_name='czsc.signals')
         bar_sdt = pd.to_datetime(start_date) - timedelta(days=365)
@@ -84,7 +89,7 @@ if files and start_date and max_workers:
             cta.backtest(symbols, max_workers=int(max_workers), bar_sdt=bar_sdt, sdt=start_date, edt=end_date)
 
     # 生成回测报告
-    file_traders = glob.glob(fr"{results_path}\backtest_*\traders\*.trader")
+    file_traders = glob.glob(str(results_path / "backtest_*" / "traders" / "*.trader"))
 
     st.subheader("一、品种等权收益曲线")
     all_pos_names = [x.name for x in czsc.dill_load(file_traders[0]).positions]

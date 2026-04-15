@@ -7,13 +7,15 @@ describe: CZSC策略单品种回放工具
 """
 import os
 import sys
+from pathlib import Path
 sys.path.insert(0, '.')
 sys.path.insert(0, '..')
 # os.environ['czsc_min_bi_len'] = '7'
 # os.environ['czsc_bi_change_th'] = '-1'
 os.environ['czsc_max_bi_num'] = '20'
 os.environ['signals_module_name'] = 'czsc.signals'
-os.environ['czsc_research_cache'] = r"D:\CZSC投研数据"  # 本地数据缓存目录
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault('czsc_research_cache', str(WORKSPACE_ROOT / "CZSC投研数据"))
 import json
 import streamlit as st
 import pandas as pd

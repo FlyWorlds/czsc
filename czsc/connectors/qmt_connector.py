@@ -601,7 +601,7 @@ class QmtTradeManager:
     def __init__(self, mini_qmt_dir, account_id, **kwargs):
         """
 
-        :param mini_qmt_dir: mini QMT 路径；如 D:\\国金QMT交易端模拟\\userdata_mini
+        :param mini_qmt_dir: mini QMT 路径；例如 userdata_mini 目录
         :param account_id: 账户ID
         :param kwargs:
 
