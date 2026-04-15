@@ -3,8 +3,8 @@ from czsc.traders.optimize import OpensOptimize, ExitsOptimize
 
 
 def run_opens_optim():
-    symbols = get_symbols('期货主力')[:10]
-    results_path = r"D:\QMT投研\CCI入场优化结果B"
+    symbols = get_symbols('中证500成分股')[:50]
+    results_path = r"D:\A股回测\CCI入场优化结果"
     files_position = [
         r"D:\QMT投研\基础策略V230707\A股日线CCI空头基准.json",
         r"D:\QMT投研\基础策略V230707\A股日线CCI多头基准.json",
@@ -46,8 +46,8 @@ def run_opens_optim():
 
 
 def run_exits_optim():
-    symbols = get_symbols('期货主力')[:10]
-    results_path = r"D:\QMT投研\CCI出场优化结果B"
+    symbols = get_symbols('中证500成分股')[:50]
+    results_path = r"D:\A股回测\CCI出场优化结果"
     files_position = [
         r"D:\QMT投研\基础策略V230707\A股日线CCI空头基准.json",
         r"D:\QMT投研\基础策略V230707\A股日线CCI多头基准.json",

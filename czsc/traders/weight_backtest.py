@@ -165,6 +165,8 @@ class WeightBacktest:
 
             - fee_rate: float，单边交易成本，包括手续费与冲击成本, 默认为 0.0002
             - res_path: str，回测结果保存路径，默认为 "weight_backtest"
+            - long_only: bool，是否仅允许做多（A股常用），默认 False
+            - t_plus_one: bool，是否启用 T+1 卖出约束（A股常用），默认 False
 
         """
         self.kwargs = kwargs
@@ -173,9 +175,78 @@ class WeightBacktest:
             raise ValueError("dfw 中存在空值, 请先处理")
         self.digits = digits
         self.fee_rate = kwargs.get('fee_rate', 0.0002)
+        self.long_only = kwargs.get('long_only', False)
+        self.t_plus_one = kwargs.get('t_plus_one', False)
+
+        self.dfw['dt'] = pd.to_datetime(self.dfw['dt'])
         self.dfw['weight'] = self.dfw['weight'].astype('float').round(digits)
+        self.dfw.sort_values(['symbol', 'dt'], inplace=True)
+        self.dfw.reset_index(drop=True, inplace=True)
+        self.dfw['raw_weight'] = self.dfw['weight']
+
+        if self.long_only or self.t_plus_one:
+            self.dfw = self._apply_market_constraints(self.dfw)
+
         self.symbols = list(self.dfw['symbol'].unique().tolist())
         self.results = self.backtest()
+
+    def _constrain_symbol_weights(self, dfs: pd.DataFrame) -> pd.DataFrame:
+        """对单个标的的目标权重施加市场约束（long-only / T+1）"""
+        dfs = dfs.sort_values('dt').copy()
+        targets = dfs['weight'].tolist()
+        dts = pd.to_datetime(dfs['dt']).tolist()
+        adjusted = []
+
+        pos = 0.0
+        sellable = 0.0
+        today_buy = 0.0
+        last_date = None
+
+        for dt, target in zip(dts, targets):
+            if self.long_only:
+                target = max(target, 0.0)
+
+            cur_date = dt.date()
+            if last_date is None or cur_date != last_date:
+                # 新交易日开始后，昨日买入仓位才变为可卖
+                sellable += today_buy
+                today_buy = 0.0
+                last_date = cur_date
+
+            if target >= pos:
+                buy_amount = target - pos
+                pos = target
+                if self.t_plus_one:
+                    today_buy += buy_amount
+            else:
+                need_sell = pos - target
+                if self.t_plus_one:
+                    can_sell = min(need_sell, sellable)
+                    sellable -= can_sell
+                else:
+                    can_sell = need_sell
+                pos -= can_sell
+
+            adjusted.append(round(pos, self.digits))
+
+        dfs['weight'] = adjusted
+        return dfs
+
+    def _apply_market_constraints(self, dfw: pd.DataFrame) -> pd.DataFrame:
+        """对全市场权重应用市场规则约束"""
+        if self.long_only and (dfw['weight'] < 0).any():
+            logger.warning("检测到负权重；已按 long_only 约束裁剪为非负权重")
+
+        if self.t_plus_one and not self.long_only:
+            logger.warning("t_plus_one 在含空头场景下语义不完整，建议同时启用 long_only=True")
+
+        rows = []
+        for _, dfg in dfw.groupby('symbol'):
+            rows.append(self._constrain_symbol_weights(dfg))
+        dfr = pd.concat(rows, ignore_index=True)
+        dfr.sort_values(['symbol', 'dt'], inplace=True)
+        dfr.reset_index(drop=True, inplace=True)
+        return dfr
 
     def get_symbol_daily(self, symbol):
         """获取某个合约的每日收益率
@@ -315,7 +386,10 @@ class WeightBacktest:
         res_path = Path(res_path)
         res_path.mkdir(exist_ok=True, parents=True)
         logger.add(res_path.joinpath("weight_backtest.log"), rotation="1 week")
-        logger.info(f"持仓权重回测参数：digits={self.digits}, fee_rate={self.fee_rate}，res_path={res_path}")
+        logger.info(
+            f"持仓权重回测参数：digits={self.digits}, fee_rate={self.fee_rate}, "
+            f"long_only={self.long_only}, t_plus_one={self.t_plus_one}，res_path={res_path}"
+        )
 
         res = self.results
         pd.to_pickle(res, res_path.joinpath("res.pkl"))
