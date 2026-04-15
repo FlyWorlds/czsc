@@ -13,6 +13,11 @@ sys.path.insert(0, '..')
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 quantitative_root = os.path.dirname(project_root)
 research_cache = os.path.join(quantitative_root, "CZSC投研数据")
+venv_python = os.path.join(project_root, ".venv", "bin", "python")
+
+# 如果用户直接用系统 python 运行示例，则自动切换到项目虚拟环境，避免缺少依赖包。
+if os.path.exists(venv_python) and os.path.realpath(sys.executable) != os.path.realpath(venv_python):
+    os.execv(venv_python, [venv_python, __file__, *sys.argv[1:]])
 
 # 优先使用项目同级的投研共享数据目录，避免不同系统上的默认路径不一致。
 if 'czsc_research_cache' not in os.environ and os.path.exists(research_cache):
@@ -35,5 +40,4 @@ bot = CTAResearch(results_path=results_path, signals_module_name='czsc.signals',
 if __name__ == '__main__':
     # 策略回测，如果是使用多进程，必须在 __main__ 中执行，且必须是在命令行中执行
     bot.backtest(symbols=get_symbols("中证500成分股")[10:20], max_workers=3, bar_sdt='20190101', edt='20220101', sdt='20200101')
-
 
